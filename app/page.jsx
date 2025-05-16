@@ -93,33 +93,6 @@ export default function Home() {
   ];
 
 
-  // Fetch and update view count from API on component mount
-  useEffect(() => {
-    const fetchAndUpdateViewCount = async () => {
-      try {
-        // Call the API route. It will handle reading, incrementing, and writing the count.
-        const response = await fetch('/api/views');
-
-        if (!response.ok) {
-          // Try to get error details if API returns JSON error
-          const errorData = await response.json().catch(() => ({ message: "API returned non-OK status." }));
-          console.error(`Failed to fetch/update view count: ${response.statusText}`, errorData.details || errorData.message || response.statusText);
-          // Fallback if API fails, could set to a default or show 'Error'
-          setPageViews("Error");
-          return;
-        }
-
-        const data = await response.json();
-        setPageViews(data.views);
-
-      } catch (error) {
-        console.error("Error calling /api/views or parsing its response:", error);
-        setPageViews("Error"); // Fallback, indicates a problem to the user
-      }
-    };
-
-    fetchAndUpdateViewCount();
-  }, []); // Empty dependency array ensures this runs only once on mount
 
 
   useEffect(() => {
@@ -764,13 +737,6 @@ export default function Home() {
           </AnimatePresence>
         </div>
 
-        {/* View Counter Display - Appears when pageViews state is not null */}
-        {pageViews !== null && (
-          <div className="fixed bottom-4 right-4 z-50 bg-gray-700 dark:bg-gray-800 text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-lg flex items-center">
-            <IconEye />
-            <span>Views: {pageViews}</span>
-          </div>
-        )}
       </div>
     </>
   );
