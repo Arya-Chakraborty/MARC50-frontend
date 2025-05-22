@@ -88,7 +88,7 @@ export default function Home() {
   }, []);
 
   const navLinks = [
-    { name: 'Home', path: '/' },
+    { name: 'Predict', path: '/' },
     { name: 'Contact us', path: '/contact' }
   ];
 

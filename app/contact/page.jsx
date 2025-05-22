@@ -16,7 +16,7 @@ const Contact = () => {
     }, []);
 
     const navLinks = [
-        { name: 'Home', path: '/' },
+        { name: 'Predict', path: '/' },
         { name: 'Contact us', path: '/contact' }
     ];
 
