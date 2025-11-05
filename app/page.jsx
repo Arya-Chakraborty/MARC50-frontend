@@ -11,6 +11,7 @@ import {
 // --- Configuration ---
 const MAX_COMPOUNDS = 20;
 const API_URL = 'https://honest-tuna-striking.ngrok-free.app/api/predict'; // Ensure this matches your backend
+// const API_URL = 'http://127.0.0.1:5000/api/predict'; // Ensure this matches your backend
 
 // --- Helper Components / Icons ---
 const IconSun = () => (
@@ -118,11 +119,27 @@ export default function Home() {
             };
           }
         }
+
+        // Get descriptor values for this compound
+        const descriptors = results.descriptors_results && results.descriptors_results[smiles] 
+          ? results.descriptors_results[smiles] 
+          : {};
+        
+        // Replace NaN with 0.0000 and format to 4 decimal places
+        const formattedDescriptors = {};
+        Object.keys(descriptors).forEach(key => {
+          const value = descriptors[key];
+          formattedDescriptors[key] = (value === null || value === undefined || isNaN(value)) 
+            ? '0.0000' 
+            : typeof value === 'number' ? value.toFixed(4) : '0.0000';
+        });
+
         return {
           smiles: smiles.startsWith("EMPTY_INPUT_") ? "(Empty Input)" : smiles,
           type: classification,
           AC50: AC50Display,
-          _rawPurityData: rawPurityData
+          _rawPurityData: rawPurityData,
+          descriptors: formattedDescriptors
         };
       });
 
@@ -568,6 +585,34 @@ export default function Home() {
                             <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Compound (SMILES)</th>
                             <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Modulator Type</th>
                             <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">AC50 Range</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">nN</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">nX</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">AATS2i</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">nBondsD</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">nBondsD2</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">C1SP2</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">C3SP2</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">SCH-5</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">nHssNH</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">ndssC</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">nssNH</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">SdssC</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">SdS</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">mindO</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">mindS</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">minssS</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">maxdssC</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">ETA_dAlpha_B</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">MDEN-23</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">n5Ring</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">nT5Ring</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">nHeteroRing</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">n5HeteroRing</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">nT5HeteroRing</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">SRW5</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">SRW7</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">SRW9</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">WTPT-5</th>
                           </tr>
                         </thead>
                         <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -587,6 +632,34 @@ export default function Home() {
                               <td className={`px-4 py-3 whitespace-nowrap text-xs ${item.type === 'Activator' && !item.AC50.toLowerCase().includes("error") && !item.AC50.toLowerCase().includes("n/a") ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'}`}>
                                 {item.AC50}
                               </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 dark:text-gray-300">{item.descriptors?.nN || '0.0000'}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 dark:text-gray-300">{item.descriptors?.nX || '0.0000'}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 dark:text-gray-300">{item.descriptors?.AATS2i || '0.0000'}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 dark:text-gray-300">{item.descriptors?.nBondsD || '0.0000'}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 dark:text-gray-300">{item.descriptors?.nBondsD2 || '0.0000'}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 dark:text-gray-300">{item.descriptors?.C1SP2 || '0.0000'}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 dark:text-gray-300">{item.descriptors?.C3SP2 || '0.0000'}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 dark:text-gray-300">{item.descriptors?.['SCH-5'] || '0.0000'}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 dark:text-gray-300">{item.descriptors?.nHssNH || '0.0000'}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 dark:text-gray-300">{item.descriptors?.ndssC || '0.0000'}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 dark:text-gray-300">{item.descriptors?.nssNH || '0.0000'}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 dark:text-gray-300">{item.descriptors?.SdssC || '0.0000'}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 dark:text-gray-300">{item.descriptors?.SdS || '0.0000'}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 dark:text-gray-300">{item.descriptors?.mindO || '0.0000'}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 dark:text-gray-300">{item.descriptors?.mindS || '0.0000'}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 dark:text-gray-300">{item.descriptors?.minssS || '0.0000'}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 dark:text-gray-300">{item.descriptors?.maxdssC || '0.0000'}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 dark:text-gray-300">{item.descriptors?.ETA_dAlpha_B || '0.0000'}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 dark:text-gray-300">{item.descriptors?.['MDEN-23'] || '0.0000'}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 dark:text-gray-300">{item.descriptors?.n5Ring || '0.0000'}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 dark:text-gray-300">{item.descriptors?.nT5Ring || '0.0000'}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 dark:text-gray-300">{item.descriptors?.nHeteroRing || '0.0000'}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 dark:text-gray-300">{item.descriptors?.n5HeteroRing || '0.0000'}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 dark:text-gray-300">{item.descriptors?.nT5HeteroRing || '0.0000'}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 dark:text-gray-300">{item.descriptors?.SRW5 || '0.0000'}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 dark:text-gray-300">{item.descriptors?.SRW7 || '0.0000'}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 dark:text-gray-300">{item.descriptors?.SRW9 || '0.0000'}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 dark:text-gray-300">{item.descriptors?.['WTPT-5'] || '0.0000'}</td>
                             </tr>
                           ))}
                         </tbody>
