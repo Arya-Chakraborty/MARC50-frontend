@@ -10,8 +10,11 @@ import {
 
 // --- Configuration ---
 const MAX_COMPOUNDS = 20;
-const API_URL = 'https://honest-tuna-striking.ngrok-free.app/api/predict'; // Ensure this matches your backend
-// const API_URL = 'http://127.0.0.1:5000/api/predict'; // Ensure this matches your backend
+// const API_BASE_URL = 'https://honest-tuna-striking.ngrok-free.app/api';
+const API_BASE_URL = 'http://127.0.0.1:5000/api';
+const API_URL = `${API_BASE_URL}/predict`;
+const CHECK_USER_URL = `${API_BASE_URL}/check-user`;
+const REGISTER_USER_URL = `${API_BASE_URL}/register-user`;
 
 // --- Helper Components / Icons ---
 const IconSun = () => (
@@ -79,6 +82,13 @@ export default function Home() {
   const [showEmailPrompt, setShowEmailPrompt] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [isEmailSubmission, setIsEmailSubmission] = useState(false);
+  
+  // User registration states
+  const [userExists, setUserExists] = useState(false);
+  const [showRegistrationForm, setShowRegistrationForm] = useState(false);
+  const [userName, setUserName] = useState('');
+  const [userAffiliation, setUserAffiliation] = useState('');
+  const [registrationError, setRegistrationError] = useState('');
 
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -279,6 +289,40 @@ export default function Home() {
     }
   };
 
+  const checkUserInDatabase = async (email) => {
+    try {
+      const res = await fetch(CHECK_USER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      return data.exists;
+    } catch (error) {
+      console.error('Error checking user:', error);
+      return false;
+    }
+  };
+
+  const registerNewUser = async (email, name, affiliation) => {
+    try {
+      const res = await fetch(REGISTER_USER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, name, affiliation }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        return { success: true };
+      } else {
+        return { success: false, error: data.error || 'Failed to register user.' };
+      }
+    } catch (error) {
+      console.error('Error registering user:', error);
+      return { success: false, error: 'Network error. Please try again.' };
+    }
+  };
+
   const handleSubmit = async () => {
     setIsLoading(true); setResults(null); setInputError(''); setEmailSent(false); setIsEmailSubmission(false);
     let smilesToProcess = [];
@@ -318,6 +362,17 @@ export default function Home() {
         setIsLoading(false);
         return;
       }
+      
+      // Check if user exists in database
+      const exists = await checkUserInDatabase(userEmail);
+      if (!exists) {
+        // User doesn't exist, show registration form
+        setShowRegistrationForm(true);
+        setInputError(`Email not found in our database. Please provide your name and affiliation to register.`);
+        setIsLoading(false);
+        return;
+      }
+      
       // Set flag to indicate this is an email submission
       setIsEmailSubmission(true);
     }
@@ -370,9 +425,37 @@ export default function Home() {
     }
   };
 
+  const handleRegistration = async () => {
+    // Validate inputs
+    if (!userName.trim() || !userAffiliation.trim()) {
+      setRegistrationError('Please fill in all fields.');
+      return;
+    }
+    
+    setRegistrationError('');
+    setIsLoading(true);
+    
+    // Register user
+    const result = await registerNewUser(userEmail, userName, userAffiliation);
+    if (result.success) {
+      // Registration successful, hide form and proceed with submission
+      setShowRegistrationForm(false);
+      setUserExists(true);
+      setInputError('');
+      // Automatically proceed with compound processing
+      handleSubmit();
+    } else {
+      setRegistrationError(result.error || 'Failed to register. Please try again.');
+      setIsLoading(false);
+    }
+  };
+
   const clearInputs = () => {
     setTextareaValue(''); setSelectedFile(null); setFileName('');
     setInputError(''); setResults(null);
+    setUserEmail(''); setShowEmailPrompt(false); setEmailSent(false);
+    setShowRegistrationForm(false); setUserName(''); setUserAffiliation('');
+    setRegistrationError(''); setUserExists(false);
     const fileInput = document.getElementById('fileUpload');
     if (fileInput) fileInput.value = null;
   };
@@ -590,6 +673,79 @@ export default function Home() {
                   disabled={isLoading}
                   className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-cyan-500 focus:border-cyan-500 bg-gray-50 dark:bg-gray-700 text-sm placeholder-gray-400 dark:placeholder-gray-500"
                 />
+              </motion.div>
+            )}
+
+            {showRegistrationForm && (
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-300 dark:border-blue-700 rounded-lg"
+              >
+                <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300 mb-3">
+                  New User Registration
+                </h3>
+                <p className="text-sm text-blue-700 dark:text-blue-400 mb-4">
+                  We need a few more details to register you in our database.
+                </p>
+                
+                {registrationError && (
+                  <div className="mb-3 p-2 bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 rounded text-red-700 dark:text-red-300 text-sm">
+                    {registrationError}
+                  </div>
+                )}
+                
+                <div className="space-y-3">
+                  <div>
+                    <label htmlFor="userNameInput" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Full Name *
+                    </label>
+                    <input
+                      id="userNameInput"
+                      type="text"
+                      placeholder="John Doe"
+                      value={userName}
+                      onChange={(e) => setUserName(e.target.value)}
+                      disabled={isLoading}
+                      className="w-full p-2.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-sm placeholder-gray-400 dark:placeholder-gray-500"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="userAffiliationInput" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Affiliation *
+                    </label>
+                    <input
+                      id="userAffiliationInput"
+                      type="text"
+                      placeholder="University/Organization"
+                      value={userAffiliation}
+                      onChange={(e) => setUserAffiliation(e.target.value)}
+                      disabled={isLoading}
+                      className="w-full p-2.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-sm placeholder-gray-400 dark:placeholder-gray-500"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      value={userEmail}
+                      disabled
+                      className="w-full p-2.5 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-800 text-sm text-gray-600 dark:text-gray-400"
+                    />
+                  </div>
+                  
+                  <button
+                    onClick={handleRegistration}
+                    disabled={isLoading}
+                    className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400 text-white font-semibold rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isLoading ? 'Registering...' : 'Register & Continue'}
+                  </button>
+                </div>
               </motion.div>
             )}
 
