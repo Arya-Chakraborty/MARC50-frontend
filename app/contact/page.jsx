@@ -17,6 +17,7 @@ const Contact = () => {
 
     const navLinks = [
         { name: 'Predict', path: '/' },
+        { name: 'Manual', path: 'https://drive.google.com/file/d/1T40gl6q5QOt1yy5Qc7NTKJtCAn1gO9V-/view?usp=sharing' },
         { name: 'Contact us', path: '/contact' }
     ];
 
@@ -44,13 +45,25 @@ const Contact = () => {
                         <div className="hidden md:block">
                             <div className="ml-10 flex items-center space-x-8">
                                 {navLinks.map((link) => (
-                                    <Link
-                                        key={link.name}
-                                        href={link.path}
-                                        className={`text-gray-700 dark:text-gray-300 hover:text-cyan-600 dark:hover:text-cyan-400 px-3 py-2 rounded-md text-sm font-medium transition-colors ${link.path === '/contact' ? 'font-semibold text-cyan-600 dark:text-cyan-400' : ''}`}
-                                    >
-                                        {link.name}
-                                    </Link>
+                                    link.path.startsWith('http') ? (
+                                        <a
+                                            key={link.name}
+                                            href={link.path}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-gray-700 dark:text-gray-300 hover:text-cyan-600 dark:hover:text-cyan-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                                        >
+                                            {link.name}
+                                        </a>
+                                    ) : (
+                                        <Link
+                                            key={link.name}
+                                            href={link.path}
+                                            className={`text-gray-700 dark:text-gray-300 hover:text-cyan-600 dark:hover:text-cyan-400 px-3 py-2 rounded-md text-sm font-medium transition-colors ${link.path === '/contact' ? 'font-semibold text-cyan-600 dark:text-cyan-400' : ''}`}
+                                        >
+                                            {link.name}
+                                        </Link>
+                                    )
                                 ))}
                             </div>
                         </div>
@@ -89,14 +102,27 @@ const Contact = () => {
                         >
                             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white dark:bg-gray-800">
                                 {navLinks.map((link) => (
-                                    <Link
-                                        key={link.name}
-                                        href={link.path}
-                                        className={`block px-3 py-2 rounded-md text-base font-medium ${link.path === '/contact' ? 'text-cyan-600 dark:text-cyan-400' : 'text-gray-700 dark:text-gray-300'} hover:text-cyan-600 dark:hover:text-cyan-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors`}
-                                        onClick={() => setMobileMenuOpen(false)}
-                                    >
-                                        {link.name}
-                                    </Link>
+                                    link.path.startsWith('http') ? (
+                                        <a
+                                            key={link.name}
+                                            href={link.path}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:text-cyan-600 dark:hover:text-cyan-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                            onClick={() => setMobileMenuOpen(false)}
+                                        >
+                                            {link.name}
+                                        </a>
+                                    ) : (
+                                        <Link
+                                            key={link.name}
+                                            href={link.path}
+                                            className={`block px-3 py-2 rounded-md text-base font-medium ${link.path === '/contact' ? 'text-cyan-600 dark:text-cyan-400' : 'text-gray-700 dark:text-gray-300'} hover:text-cyan-600 dark:hover:text-cyan-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors`}
+                                            onClick={() => setMobileMenuOpen(false)}
+                                        >
+                                            {link.name}
+                                        </Link>
+                                    )
                                 ))}
                             </div>
                         </motion.div>
