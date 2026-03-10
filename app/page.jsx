@@ -87,7 +87,7 @@ export default function Home() {
   const navLinks = [
     { name: 'Predict', path: '/' },
     { name: 'Manual', path: 'https://drive.google.com/file/d/1T40gl6q5QOt1yy5Qc7NTKJtCAn1gO9V-/view?usp=sharing', external: true },
-    { name: 'Cite This', path: '#', external: true },
+    { name: 'Cite This', path: 'https://pubs.acs.org/doi/10.1021/acsmedchemlett.5c00353', external: true },
     { name: 'Contact us', path: '/contact' }
   ];
 
