@@ -12,7 +12,7 @@ import MoleculeDrawer from './components/MoleculeDrawer';
 
 // --- Configuration ---
 const MAX_COMPOUNDS = 20;
-const API_BASE_URL = 'https://honest-tuna-striking.ngrok-free.app/api';
+const API_BASE_URL = 'https://displeasingly-nonreclaimable-michaela.ngrok-free.dev/api';
 // const API_BASE_URL = 'http://127.0.0.1:8080/api';
 const API_URL = `${API_BASE_URL}/predict`;
 const CHECK_USER_URL = `${API_BASE_URL}/check-user`;
