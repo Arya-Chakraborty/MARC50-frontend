@@ -1,5 +1,6 @@
 "use client"
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as XLSX from 'xlsx'; // For parsing Excel files (still used for SMILES upload)
@@ -7,38 +8,19 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip as RechartsTooltip,
   ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Scatter
 } from 'recharts';
+import MoleculeDrawer from './components/MoleculeDrawer';
 
 // --- Configuration ---
 const MAX_COMPOUNDS = 20;
-const API_BASE_URL = 'https://honest-tuna-striking.ngrok-free.app/api';
-// const API_BASE_URL = 'http://127.0.0.1:5000/api';
+// const API_BASE_URL = 'https://honest-tuna-striking.ngrok-free.app/api';
+const API_BASE_URL = 'http://127.0.0.1:8080/api';
 const API_URL = `${API_BASE_URL}/predict`;
 const CHECK_USER_URL = `${API_BASE_URL}/check-user`;
 
 // --- Helper Components / Icons ---
-const IconSun = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-6.364-.386l1.591-1.591M3 12h2.25m.386-6.364l1.591 1.591" />
-  </svg>
-);
-
-const IconMoon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
-  </svg>
-);
-
 const IconUpload = () => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 mr-2">
     <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-  </svg>
-);
-
-// Icon for the view counter
-const IconEye = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 mr-1.5 inline-block">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
   </svg>
 );
 
@@ -71,20 +53,17 @@ export default function Home() {
   const [results, setResults] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [inputError, setInputError] = useState('');
-  const [theme, setTheme] = useState('light');
   const [tableData, setTableData] = useState([]);
   const [chartData, setChartData] = useState([]);
   const [activatorAC50Data, setActivatorAC50Data] = useState([]);
-  const [particles, setParticles] = useState([]);
-  const [pageViews, setPageViews] = useState(null); // State for the view counter
   const [userEmail, setUserEmail] = useState('');
   const [showEmailPrompt, setShowEmailPrompt] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [isEmailSubmission, setIsEmailSubmission] = useState(false);
-  
+
   // Compound names mapping: { smiles: name }
   const [compoundNamesMap, setCompoundNamesMap] = useState({});
-  
+
   // User registration states
   const [userExists, setUserExists] = useState(false);
   const [showRegistrationForm, setShowRegistrationForm] = useState(false);
@@ -94,6 +73,8 @@ export default function Home() {
 
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeInputTab, setActiveInputTab] = useState('text'); // 'text', 'file', or 'draw'
+  const pathname = usePathname();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -105,7 +86,8 @@ export default function Home() {
 
   const navLinks = [
     { name: 'Predict', path: '/' },
-    { name: 'Manual', path: 'https://drive.google.com/file/d/1T40gl6q5QOt1yy5Qc7NTKJtCAn1gO9V-/view?usp=sharing' },
+    { name: 'Manual', path: 'https://drive.google.com/file/d/1T40gl6q5QOt1yy5Qc7NTKJtCAn1gO9V-/view?usp=sharing', external: true },
+    { name: 'Cite This', path: '#', external: true },
     { name: 'Contact us', path: '/contact' }
   ];
 
@@ -119,11 +101,11 @@ export default function Home() {
         let AC50Display = 'N/A';
         let rawPurityData = {};
         let classification = prediction.classification || 'unknown';
-        
+
         // Map classification to match old format (inhibitor -> Activator, decoy -> Decoy)
         // Note: Backend uses 'inhibitor' and 'decoy', frontend expects 'Activator', 'Inhibitor', 'Decoy'
         let mappedType = classification.charAt(0).toUpperCase() + classification.slice(1); // Capitalize
-        
+
         // Handle IC50 display for inhibitors
         if (prediction.ic50 !== null && prediction.ic50 !== undefined) {
           AC50Display = `IC50: ${prediction.ic50.toFixed(2)} nM (Class: ${prediction.class})`;
@@ -136,13 +118,13 @@ export default function Home() {
 
         // Get descriptor values for this compound
         const descriptors = prediction.descriptors || {};
-        
+
         // Replace NaN with 0.0000 and format to 4 decimal places
         const formattedDescriptors = {};
         Object.keys(descriptors).forEach(key => {
           const value = descriptors[key];
-          formattedDescriptors[key] = (value === null || value === undefined || isNaN(value)) 
-            ? '0.0000' 
+          formattedDescriptors[key] = (value === null || value === undefined || isNaN(value))
+            ? '0.0000'
             : typeof value === 'number' ? value.toFixed(4) : '0.0000';
         });
 
@@ -196,7 +178,7 @@ export default function Home() {
     } else if (results && results.classification_results) {
       // Old backend format - keep for backward compatibility
       const smilesArray = Object.keys(results.classification_results);
-      
+
       const newTableData = Object.entries(results.classification_results).map(([smiles, classification], index) => {
         let AC50Display = 'N/A';
         let rawPurityData = {};
@@ -220,16 +202,16 @@ export default function Home() {
         }
 
         // Get descriptor values for this compound
-        const descriptors = results.descriptors_results && results.descriptors_results[smiles] 
-          ? results.descriptors_results[smiles] 
+        const descriptors = results.descriptors_results && results.descriptors_results[smiles]
+          ? results.descriptors_results[smiles]
           : {};
-        
+
         // Replace NaN with 0.0000 and format to 4 decimal places
         const formattedDescriptors = {};
         Object.keys(descriptors).forEach(key => {
           const value = descriptors[key];
-          formattedDescriptors[key] = (value === null || value === undefined || isNaN(value)) 
-            ? '0.0000' 
+          formattedDescriptors[key] = (value === null || value === undefined || isNaN(value))
+            ? '0.0000'
             : typeof value === 'number' ? value.toFixed(4) : '0.0000';
         });
 
@@ -336,7 +318,7 @@ export default function Home() {
         localJsonSheet.slice(startIndex).forEach(row => {
           const smiles = (row && row[0]) ? String(row[0]).trim() : "";
           const name = (row && row[1]) ? String(row[1]).trim() : "";
-          
+
           if (smiles && smiles.length > 2 && !smiles.toLowerCase().includes("smiles") && !smiles.toLowerCase().includes("compound")) {
             smilesFromFile.push(smiles);
             namesFromFile.push(name); // Empty string if no name provided
@@ -359,7 +341,7 @@ export default function Home() {
             const cols = row.split(/[,;\t]/);
             const smiles = cols[0] ? cols[0].trim() : "";
             const name = cols[1] ? cols[1].trim() : "";
-            
+
             if (smiles && smiles.length > 2 && !smiles.toLowerCase().includes("smiles") && !smiles.toLowerCase().includes("compound")) {
               smilesFromFile.push(smiles);
               namesFromFile.push(name);
@@ -393,6 +375,17 @@ export default function Home() {
     }
   };
 
+  const handleSmilesFromDrawing = (smilesString) => {
+    const currentValue = textareaValue.trim();
+    const newValue = currentValue ? `${currentValue}\n${smilesString}` : smilesString;
+    setTextareaValue(newValue);
+    setSelectedFile(null);
+    setFileName('');
+    setInputError('');
+    setResults(null);
+    setActiveInputTab('text');
+  };
+
   const checkUserInDatabase = async (email) => {
     try {
       const res = await fetch(CHECK_USER_URL, {
@@ -418,14 +411,14 @@ export default function Home() {
         const fileData = await readFileContent(selectedFile);
         const parsed = parseFileContent(fileData.content, fileData.isBinary, selectedFile.name);
         smilesToProcess = parsed.smiles;
-        
+
         // Create mapping from SMILES to name
         parsed.smiles.forEach((smiles, index) => {
           if (parsed.names[index]) {
             namesMapping[smiles] = parsed.names[index];
           }
         });
-        
+
         if (smilesToProcess.length === 0) {
           setInputError("No valid SMILES found in file. Check format (SMILES in first column, optional name in second column).");
           setIsLoading(false); return;
@@ -441,7 +434,7 @@ export default function Home() {
         const parts = line.split(',').map(p => p.trim());
         const smiles = parts[0];
         const name = parts[1] || ""; // Optional name
-        
+
         if (smiles) {
           smilesToProcess.push(smiles);
           if (name) {
@@ -458,13 +451,13 @@ export default function Home() {
       setInputError("No SMILES input. Enter in textarea or upload file.");
       setIsLoading(false); return;
     }
-    
+
     // Check if manual input exceeds 20 molecules
     if (!selectedFile && smilesToProcess.length > MAX_COMPOUNDS) {
       setInputError(`Manual input is limited to ${MAX_COMPOUNDS} compounds. You provided ${smilesToProcess.length}. Please upload a CSV file for larger batches.`);
       setIsLoading(false); return;
     }
-    
+
     // Check if file input exceeds 20 molecules - show email prompt
     if (selectedFile && smilesToProcess.length > MAX_COMPOUNDS) {
       if (!userEmail || !userEmail.includes('@')) {
@@ -473,7 +466,7 @@ export default function Home() {
         setIsLoading(false);
         return;
       }
-      
+
       // Check if user exists in database (only if we don't already have registration info)
       if (!userName || !userAffiliation) {
         const exists = await checkUserInDatabase(userEmail);
@@ -485,7 +478,7 @@ export default function Home() {
           return;
         }
       }
-      
+
       // Set flag to indicate this is an email submission
       setIsEmailSubmission(true);
     }
@@ -494,12 +487,12 @@ export default function Home() {
     const isLargeBatch = smilesToProcess.length > MAX_COMPOUNDS;
 
     try {
-      const payload = { 
+      const payload = {
         compound: smilesToProcess,
         names: namesMapping,  // Include the names mapping
         percentage: Number(percentage),
       };
-      
+
       // For large batches, add email and user info
       if (isLargeBatch && userEmail) {
         payload.email = userEmail;
@@ -509,15 +502,15 @@ export default function Home() {
           payload.affiliation = userAffiliation;
         }
       }
-      
+
       console.log('Sending payload:', payload);  // Debug log
-      
+
       const res = await fetch(API_URL, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      
+
       if (!res.ok) {
         // Check if error is about missing user info
         if (data.error && data.error.includes('Name and affiliation are required')) {
@@ -534,12 +527,12 @@ export default function Home() {
         // Success! Hide registration form if it was shown
         setShowRegistrationForm(false);
         setRegistrationError('');
-        
+
         // Check if email was sent for large batch (backend returns message for large batches)
         if (data.message && data.email && data.compound_count) {
           // Large batch - email will be sent
-          setResults({ 
-            email_sent: true, 
+          setResults({
+            email_sent: true,
             message: data.message || 'Processing completed successfully! Results will be sent to your email shortly.',
             completionMessage: 'Check your inbox for the detailed results CSV file.',
             compound_count: data.compound_count,
@@ -574,9 +567,9 @@ export default function Home() {
       setRegistrationError('Please fill in all fields.');
       return;
     }
-    
+
     setRegistrationError('');
-    
+
     // Registration will be handled inline in the predict endpoint
     // Just proceed with submission
     handleSubmit();
@@ -588,7 +581,7 @@ export default function Home() {
     setUserEmail(''); setShowEmailPrompt(false); setEmailSent(false);
     setShowRegistrationForm(false); setUserName(''); setUserAffiliation('');
     setRegistrationError(''); setUserExists(false);
-    setCompoundNamesMap({});
+    setCompoundNamesMap({}); setActiveInputTab('text');
     const fileInput = document.getElementById('fileUpload');
     if (fileInput) fileInput.value = null;
   };
@@ -612,12 +605,12 @@ export default function Home() {
       'maxdssC', 'ETA_dAlpha_B', 'MDEN-23', 'n5Ring', 'nT5Ring', 'nHeteroRing',
       'n5HeteroRing', 'nT5HeteroRing', 'SRW5', 'SRW7', 'SRW9', 'WTPT-5'
     ];
-    
+
     const headers = ["Compound (SMILES)", "Name", "Modulator Type", "AC50 Range", ...descriptorHeaders];
     const csvRows = [
       headers.join(','),
       ...tableData.map(item => {
-        const descriptorValues = descriptorHeaders.map(header => 
+        const descriptorValues = descriptorHeaders.map(header =>
           escapeCSVField(item.descriptors?.[header] || '0.0000')
         );
         return [
@@ -667,13 +660,13 @@ export default function Home() {
             <div className="hidden md:block">
               <div className="ml-10 flex items-center space-x-8">
                 {navLinks.map((link) => (
-                  link.path.startsWith('http') ? (
+                  link.external ? (
                     <a
                       key={link.name}
                       href={link.path}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-gray-700 dark:text-gray-300 hover:text-cyan-600 dark:hover:text-cyan-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                      className="px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-700 dark:text-gray-300 hover:text-cyan-600 dark:hover:text-cyan-400"
                     >
                       {link.name}
                     </a>
@@ -681,7 +674,10 @@ export default function Home() {
                     <Link
                       key={link.name}
                       href={link.path}
-                      className="text-gray-700 dark:text-gray-300 hover:text-cyan-600 dark:hover:text-cyan-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                      className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${pathname === link.path
+                        ? 'text-cyan-600 dark:text-cyan-400 font-semibold'
+                        : 'text-gray-700 dark:text-gray-300 hover:text-cyan-600 dark:hover:text-cyan-400'
+                        }`}
                     >
                       {link.name}
                     </Link>
@@ -724,7 +720,7 @@ export default function Home() {
             >
               <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white dark:bg-gray-800">
                 {navLinks.map((link) => (
-                  link.path.startsWith('http') ? (
+                  link.external ? (
                     <a
                       key={link.name}
                       href={link.path}
@@ -739,7 +735,10 @@ export default function Home() {
                     <Link
                       key={link.name}
                       href={link.path}
-                      className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:text-cyan-600 dark:hover:text-cyan-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${pathname === link.path
+                        ? 'text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-900/20'
+                        : 'text-gray-700 dark:text-gray-300 hover:text-cyan-600 dark:hover:text-cyan-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        }`}
                       onClick={() => setMobileMenuOpen(false)}
                     >
                       {link.name}
@@ -752,7 +751,7 @@ export default function Home() {
         </AnimatePresence>
       </nav>
       <div className={`min-h-screen font-sans transition-colors duration-300 bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 overflow-x-hidden pt-8`}>
-        
+
         <div className="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <header className="mb-12 text-center">
             <motion.div
@@ -772,40 +771,90 @@ export default function Home() {
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }}
             className="bg-white dark:bg-gray-800/70 backdrop-blur-md shadow-xl rounded-xl p-6 sm:p-8 border border-gray-200 dark:border-gray-700"
           >
-            <div className="grid md:grid-cols-2 gap-6 mb-6">
-              <div>
-                <label htmlFor="smilesInput" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Enter SMILES Strings (with optional names)
-                </label>
-                <textarea
-                  id="smilesInput" rows={6}
-                  className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-cyan-500 focus:border-cyan-500 bg-gray-50 dark:bg-gray-700 text-sm font-mono placeholder-gray-400 dark:placeholder-gray-500"
-                  placeholder={`SMILES,Name (optional)\nCCC,Propane\nCCO,Ethanol\nCNC(=O)C1=CN=CN1\nMax ${MAX_COMPOUNDS} compounds. One per line.`}
-                  value={textareaValue}
-                  onChange={(e) => { setTextareaValue(e.target.value); setSelectedFile(null); setFileName(''); setInputError(''); setResults(null); }}
-                  disabled={isLoading}
-                />
+            {/* Input Method Tabs */}
+            <div className="mb-6">
+              <div className="border-b border-gray-200 dark:border-gray-700">
+                <nav className="-mb-px flex flex-col sm:flex-row sm:space-x-8 space-y-0" aria-label="Input methods">
+                  <button
+                    onClick={() => setActiveInputTab('text')}
+                    className={`${activeInputTab === 'text'
+                      ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400 sm:border-b-2 border-l-4 sm:border-l-0'
+                      : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300'
+                      } py-3 sm:py-4 px-4 sm:px-1 border-b sm:border-b-2 border-l-4 sm:border-l-0 font-medium text-sm transition-colors text-left`}
+                  >
+                    ✍️ Enter SMILES
+                  </button>
+                  <button
+                    onClick={() => setActiveInputTab('draw')}
+                    className={`${activeInputTab === 'draw'
+                      ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400 sm:border-b-2 border-l-4 sm:border-l-0'
+                      : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300'
+                      } py-3 sm:py-4 px-4 sm:px-1 border-b sm:border-b-2 border-l-4 sm:border-l-0 font-medium text-sm transition-colors text-left`}
+                  >
+                    🎨 Draw Molecule
+                  </button>
+                  <button
+                    onClick={() => setActiveInputTab('file')}
+                    className={`${activeInputTab === 'file'
+                      ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400 sm:border-b-2 border-l-4 sm:border-l-0'
+                      : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300'
+                      } py-3 sm:py-4 px-4 sm:px-1 border-b sm:border-b-2 border-l-4 sm:border-l-0 font-medium text-sm transition-colors text-left`}
+                  >
+                    📁 Upload File
+                  </button>
+                </nav>
               </div>
-              <div>
-                <label htmlFor="fileUpload" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Or Upload File
-                </label>
-                <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-md hover:border-cyan-500 dark:hover:border-cyan-400 transition-colors">
-                  <div className="space-y-1 text-center">
-                    <div className="flex text-sm text-gray-600 dark:text-gray-400">
+            </div>
+
+            {/* Input Content Area */}
+            <div className="mb-6">
+              {activeInputTab === 'text' && (
+                <div>
+                  <label htmlFor="smilesInput" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Enter SMILES Strings
+                  </label>
+                  <textarea
+                    id="smilesInput" rows={10}
+                    className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-cyan-500 focus:border-cyan-500 bg-gray-50 dark:bg-gray-700 text-sm font-mono placeholder-gray-400 dark:placeholder-gray-500"
+                    placeholder={`CCC, Propane\nCCO, Ethanol\nCNC(=O)C1=CN=CN1\nOne compound per line in format: SMILES, Name\nMax ${MAX_COMPOUNDS} compounds allowed for manual input`}
+                    value={textareaValue}
+                    onChange={(e) => { setTextareaValue(e.target.value); setSelectedFile(null); setFileName(''); setInputError(''); setResults(null); }}
+                    disabled={isLoading}
+                  />
+                </div>
+              )}
+
+              {activeInputTab === 'draw' && (
+                <div>
+                  <MoleculeDrawer
+                    onSmilesExtracted={handleSmilesFromDrawing}
+                    disabled={isLoading}
+                  />
+                </div>
+              )}
+
+              {activeInputTab === 'file' && (
+                <div>
+                  <label htmlFor="fileUpload" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Upload File with SMILES
+                  </label>
+                  <div className="mt-1 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-md hover:border-cyan-500 dark:hover:border-cyan-400 transition-colors">
+                    <div className="flex flex-col items-center justify-center px-4 py-16 space-y-3">
                       <IconUpload />
-                      <label htmlFor="fileUpload" className="relative cursor-pointer bg-white dark:bg-transparent rounded-md font-medium text-cyan-600 dark:text-cyan-400 hover:text-cyan-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 dark:focus-within:ring-offset-gray-800 focus-within:ring-cyan-500 px-1">
-                        <span>Upload a file</span>
-                        <input id="fileUpload" name="fileUpload" type="file" className="sr-only"
-                          accept=".csv, .xlsx, .xls" onChange={handleFileChange} disabled={isLoading} />
-                      </label>
-                      <p className="pl-1">or drag and drop</p>
+                      <div className="text-center space-y-2">
+                        <label htmlFor="fileUpload" className="cursor-pointer font-medium text-cyan-600 dark:text-cyan-400 hover:text-cyan-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 dark:focus-within:ring-offset-gray-800 focus-within:ring-cyan-500 text-sm block">
+                          <span>Upload a file</span>
+                          <input id="fileUpload" name="fileUpload" type="file" className="sr-only"
+                            accept=".csv, .xlsx, .xls" onChange={handleFileChange} disabled={isLoading} />
+                        </label>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">or drag and drop</p>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-500 text-center max-w-xs">CSV, XLSX, XLS up to 1MB. SMILES in first column, names in second column.</p>
+                      {fileName && <p className="text-xs text-cyan-600 dark:text-cyan-400 font-medium break-all max-w-xs text-center">✓ Selected: {fileName}</p>}
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-500">CSV, XLSX, XLS up to 1MB. SMILES in column 1, optional name in column 2.</p>
-                    {fileName && <p className="text-xs text-cyan-600 dark:text-cyan-400 mt-1">Selected: {fileName}</p>}
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {inputError && (
@@ -815,9 +864,9 @@ export default function Home() {
             )}
 
             {showEmailPrompt && (
-              <motion.div 
-                initial={{ opacity: 0, y: -10 }} 
-                animate={{ opacity: 1, y: 0 }} 
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
                 className="mb-6"
               >
                 <label htmlFor="emailInput" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -836,9 +885,9 @@ export default function Home() {
             )}
 
             {showRegistrationForm && (
-              <motion.div 
-                initial={{ opacity: 0, y: -10 }} 
-                animate={{ opacity: 1, y: 0 }} 
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
                 className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-300 dark:border-blue-700 rounded-lg"
               >
                 <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300 mb-3">
@@ -847,13 +896,13 @@ export default function Home() {
                 <p className="text-sm text-blue-700 dark:text-blue-400 mb-4">
                   We need a few more details to register you in our database.
                 </p>
-                
+
                 {registrationError && (
                   <div className="mb-3 p-2 bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 rounded text-red-700 dark:text-red-300 text-sm">
                     {registrationError}
                   </div>
                 )}
-                
+
                 <div className="space-y-3">
                   <div>
                     <label htmlFor="userNameInput" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -869,7 +918,7 @@ export default function Home() {
                       className="w-full p-2.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-sm placeholder-gray-400 dark:placeholder-gray-500"
                     />
                   </div>
-                  
+
                   <div>
                     <label htmlFor="userAffiliationInput" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Affiliation *
@@ -884,7 +933,7 @@ export default function Home() {
                       className="w-full p-2.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-sm placeholder-gray-400 dark:placeholder-gray-500"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Email
@@ -896,7 +945,7 @@ export default function Home() {
                       className="w-full p-2.5 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-800 text-sm text-gray-600 dark:text-gray-400"
                     />
                   </div>
-                  
+
                   <button
                     onClick={handleRegistration}
                     disabled={isLoading}
@@ -951,31 +1000,27 @@ export default function Home() {
               <motion.div
                 key="loadingResults"
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                className={`mt-8 p-6 rounded-lg border-2 ${
-                  isEmailSubmission 
-                    ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700' 
-                    : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700'
-                }`}>
-                <div className="flex items-center justify-center mb-3">
-                  <div className={`w-8 h-8 border-3 rounded-full animate-spin mr-3 ${
-                    isEmailSubmission 
-                      ? 'border-amber-500/30 border-t-amber-500' 
-                      : 'border-blue-500/30 border-t-blue-500'
-                  }`} />
-                  <h3 className={`text-lg font-semibold ${
-                    isEmailSubmission 
-                      ? 'text-amber-700 dark:text-amber-300' 
-                      : 'text-blue-700 dark:text-blue-300'
+                className={`mt-8 p-6 rounded-lg border-2 ${isEmailSubmission
+                  ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700'
+                  : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700'
                   }`}>
+                <div className="flex items-center justify-center mb-3">
+                  <div className={`w-8 h-8 border-3 rounded-full animate-spin mr-3 ${isEmailSubmission
+                    ? 'border-amber-500/30 border-t-amber-500'
+                    : 'border-blue-500/30 border-t-blue-500'
+                    }`} />
+                  <h3 className={`text-lg font-semibold ${isEmailSubmission
+                    ? 'text-amber-700 dark:text-amber-300'
+                    : 'text-blue-700 dark:text-blue-300'
+                    }`}>
                     {isEmailSubmission ? 'Processing Your Compounds...' : 'Analyzing Compounds...'}
                   </h3>
                 </div>
-                <p className={`text-center text-sm mb-2 ${
-                  isEmailSubmission 
-                    ? 'text-amber-700 dark:text-amber-400' 
-                    : 'text-blue-600 dark:text-blue-400'
-                }`}>
-                  {isEmailSubmission 
+                <p className={`text-center text-sm mb-2 ${isEmailSubmission
+                  ? 'text-amber-700 dark:text-amber-400'
+                  : 'text-blue-600 dark:text-blue-400'
+                  }`}>
+                  {isEmailSubmission
                     ? 'Your compounds are being processed. This may take a few moments...'
                     : 'Please wait while we analyze your compounds...'}
                 </p>
@@ -1007,9 +1052,9 @@ export default function Home() {
                 )}
 
                 {results.email_sent && (
-                  <motion.div 
-                    initial={{ opacity: 0, scale: 0.95 }} 
-                    animate={{ opacity: 1, scale: 1 }} 
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.3 }}
                     className="p-6 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-300 dark:border-green-700 rounded-lg shadow-lg"
                   >
@@ -1173,22 +1218,22 @@ export default function Home() {
                                   const y = cy + radius * Math.sin(-midAngle * RADIAN);
                                   const textAnchor = x > cx ? 'start' : 'end';
                                   return (
-                                    <text x={x} y={y} fill={theme === 'dark' ? '#fff' : '#000'} textAnchor={textAnchor} dominantBaseline="central" fontSize="14px" fontWeight="bold">
+                                    <text x={x} y={y} fill={'#000'} textAnchor={textAnchor} dominantBaseline="central" fontSize="14px" fontWeight="bold">
                                       {`${name}: ${(percent * 100).toFixed(0)}% (${value})`}
                                     </text>
                                   );
                                 }}>
                                 {chartData.map((entry, index) => (
                                   <Cell key={`cell-${index}`} fill={CHART_COLORS[entry.name] || '#82ca9d'}
-                                    stroke={theme === 'dark' ? '#1F2937' : '#FFFFFF'}
+                                    stroke={'#FFFFFF'}
                                   />
                                 ))}
                               </Pie>
                               <RechartsTooltip
                                 formatter={(value, name) => [`${value} compound(s)`, name]}
-                                contentStyle={theme === 'dark' ? { backgroundColor: '#374151', borderColor: '#4B5563' } : { backgroundColor: '#ffffff', borderColor: '#D1D5DB' }}
-                                itemStyle={theme === 'dark' ? { color: '#D1D5DB' } : { color: '#000000' }}
-                                cursor={{ fill: theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)' }}
+                                contentStyle={{ backgroundColor: '#ffffff', borderColor: '#D1D5DB' }}
+                                itemStyle={{ color: '#000000' }}
+                                cursor={{ fill: 'rgba(0, 0, 0, 0.1)' }}
                               />
                               <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '20px' }} />
                             </PieChart>
@@ -1206,14 +1251,14 @@ export default function Home() {
                               data={activatorAC50Data}
                               margin={{ top: 5, right: 30, left: 10, bottom: 20 }}
                             >
-                              <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={true} stroke={theme === 'dark' ? "#4B5563" : "#E5E7EB"} />
+                              <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={true} stroke={"#E5E7EB"} />
                               <XAxis type="number" domain={['auto', 'auto']} allowDataOverflow
-                                tick={{ fontSize: 10, fill: theme === 'dark' ? '#9CA3AF' : '#6B7280' }}
-                                stroke={theme === 'dark' ? '#4B5563' : '#D1D5DB'}
+                                tick={{ fontSize: 10, fill: '#6B7280' }}
+                                stroke={'#D1D5DB'}
                               />
                               <YAxis dataKey="name" type="category" width={50} interval={0}
-                                tick={{ fontSize: 10, fill: theme === 'dark' ? '#9CA3AF' : '#6B7280' }}
-                                stroke={theme === 'dark' ? '#4B5563' : '#D1D5DB'}
+                                tick={{ fontSize: 10, fill: '#6B7280' }}
+                                stroke={'#D1D5DB'}
                               />
                               <RechartsTooltip
                                 formatter={(value, name, entry) => {
@@ -1226,28 +1271,19 @@ export default function Home() {
                                   return [value, name];
                                 }}
                                 labelFormatter={(label) => `Activator #${label}`}
-                                contentStyle={theme === 'dark' ? {
-                                  backgroundColor: '#374151',
-                                  borderColor: '#4B5563',
-                                  borderRadius: '0.5rem'
-                                } : {
+                                contentStyle={{
                                   backgroundColor: '#ffffff',
                                   borderColor: '#D1D5DB',
                                   borderRadius: '0.5rem'
                                 }}
-                                itemStyle={theme === 'dark' ? { color: '#D1D5DB' } : { color: '#1F2937' }}
-                                labelStyle={theme === 'dark' ? {
-                                  color: '#E5E7EB',
-                                  marginBottom: '4px',
-                                  fontWeight: 'bold',
-                                  fontSize: '11px'
-                                } : {
+                                itemStyle={{ color: '#1F2937' }}
+                                labelStyle={{
                                   color: '#374151',
                                   marginBottom: '4px',
                                   fontWeight: 'bold',
                                   fontSize: '11px'
                                 }}
-                                cursor={{ fill: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)' }}
+                                cursor={{ fill: 'rgba(0, 0, 0, 0.05)' }}
                               />
                               <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
                                 iconSize={10}
